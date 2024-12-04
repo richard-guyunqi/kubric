@@ -301,6 +301,7 @@ class MoviF(tfds.core.BeamBasedBuilder):
     # shuffle
     rng = np.random.RandomState(seed=42)
     rng.shuffle(all_subdirs)
+    print(f'len(all_subdirs): {len(all_subdirs)}')
 
     validation_ratio = self.builder_config.validation_ratio
     validation_examples = max(1, round(len(all_subdirs) * validation_ratio))
@@ -384,7 +385,8 @@ def load_scene_directory(scene_dir, target_size, layers=DEFAULT_LAYERS):
       "events": format_events_information(events),
   }
 
-  resolution = metadata["metadata"]["height"], metadata["metadata"]["width"]
+  # resolution = metadata["metadata"]["height"], metadata["metadata"]["width"]
+  resolution = metadata["metadata"]['resolution']
 
   assert resolution[1] / target_size[0] == resolution[0] / target_size[1]
   scale = resolution[1] / target_size[0]
@@ -567,6 +569,7 @@ def subsample_avg(arr, size):
 
 
 def is_complete_dir(video_dir, layers=DEFAULT_LAYERS):
+  print(f'video_dir:{video_dir}')
   video_dir = as_path(video_dir)
   filenames = [d.name for d in video_dir.iterdir()]
   if not ("data_ranges.json" in filenames and

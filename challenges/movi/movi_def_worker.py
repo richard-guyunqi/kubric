@@ -17,12 +17,14 @@
 """
 
 import logging
-
+import tempfile
 import bpy
+import time
 import kubric as kb
 from kubric.simulator import PyBullet
 from kubric.renderer import Blender
 import numpy as np
+import os
 
 
 # --- Some configuration values
@@ -31,45 +33,98 @@ STATIC_SPAWN_REGION = [(-7, -7, 0), (7, 7, 10)]
 DYNAMIC_SPAWN_REGION = [(-5, -5, 1), (5, 5, 5)]
 VELOCITY_RANGE = [(-4., -4., 0.), (4., 4., 0.)]
 
-# --- CLI arguments
-parser = kb.ArgumentParser()
-parser.add_argument("--objects_split", choices=["train", "test"],
-                    default="train")
-# Configuration for the objects of the scene
-parser.add_argument("--min_num_static_objects", type=int, default=10,
-                    help="minimum number of static (distractor) objects")
-parser.add_argument("--max_num_static_objects", type=int, default=20,
-                    help="maximum number of static (distractor) objects")
-parser.add_argument("--min_num_dynamic_objects", type=int, default=1,
-                    help="minimum number of dynamic (tossed) objects")
-parser.add_argument("--max_num_dynamic_objects", type=int, default=3,
-                    help="maximum number of dynamic (tossed) objects")
-# Configuration for the floor and background
-parser.add_argument("--floor_friction", type=float, default=0.3)
-parser.add_argument("--floor_restitution", type=float, default=0.5)
-parser.add_argument("--backgrounds_split", choices=["train", "test"],
-                    default="train")
+# # --- CLI arguments
+# parser = kb.ArgumentParser()
+# parser.add_argument("--objects_split", choices=["train", "test"],
+#                     default="train")
+# # Configuration for the objects of the scene
+# parser.add_argument("--min_num_static_objects", type=int, default=10,
+#                     help="minimum number of static (distractor) objects")
+# parser.add_argument("--max_num_static_objects", type=int, default=20,
+#                     help="maximum number of static (distractor) objects")
+# parser.add_argument("--min_num_dynamic_objects", type=int, default=1,
+#                     help="minimum number of dynamic (tossed) objects")
+# parser.add_argument("--max_num_dynamic_objects", type=int, default=5,
+#                     help="maximum number of dynamic (tossed) objects")
+# # Configuration for the floor and background
+# parser.add_argument("--floor_friction", type=float, default=0.3)
+# parser.add_argument("--floor_restitution", type=float, default=0.5)
+# parser.add_argument("--backgrounds_split", choices=["train", "test"],
+#                     default="train")
 
-parser.add_argument("--camera", choices=["fixed_random", "linear_movement", "linear_movement_linear_lookat"],
-                    default="fixed_random")
-parser.add_argument("--max_camera_movement", type=float, default=4.0)
-parser.add_argument("--max_motion_blur", type=float, default=0.0)
+# parser.add_argument("--camera", choices=["fixed_random", "linear_movement", "linear_movement_linear_lookat"],
+#                     default="linear_movement")
+# parser.add_argument("--max_camera_movement", type=float, default=4.0)
+# parser.add_argument("--max_motion_blur", type=float, default=2)
 
 
-# Configuration for the source of the assets
-parser.add_argument("--kubasic_assets", type=str,
-                    default="gs://kubric-public/assets/KuBasic/KuBasic.json")
-parser.add_argument("--hdri_assets", type=str,
-                    default="gs://kubric-public/assets/HDRI_haven/HDRI_haven.json")
-parser.add_argument("--gso_assets", type=str,
-                    default="gs://kubric-public/assets/GSO/GSO.json")
-parser.add_argument("--save_state", dest="save_state", action="store_true")
-parser.set_defaults(save_state=False, frame_end=24, frame_rate=12,
-                    resolution=256)
-FLAGS = parser.parse_args()
+# # Configuration for the source of the assets
+# parser.add_argument("--kubasic_assets", type=str,
+#                     default="gs://kubric-public/assets/KuBasic/KuBasic.json")
+# parser.add_argument("--hdri_assets", type=str,
+#                     default="gs://kubric-public/assets/HDRI_haven/HDRI_haven.json")
+# parser.add_argument("--gso_assets", type=str,
+#                     default="gs://kubric-public/assets/GSO/GSO.json")
+# parser.add_argument("--save_state", dest="save_state", action="store_true")
+# parser.set_defaults(save_state=False, frame_end=1, frame_rate=12,
+#                     resolution=512)
+# FLAGS = parser.parse_args()
+
+class DefaultFlags:
+    def __init__(self):
+        # Simulation configuration
+        self.frame_rate = 12
+        self.step_rate = 240
+        self.frame_start = 1
+        self.frame_end = 64
+        self.logging_level = "INFO"
+        self.seed = None
+        self.resolution = 512
+        self.scratch_dir = tempfile.mkdtemp() 
+        self.job_dir = f'outputs/output_{time.strftime("%Y_%m_%d_%H_%M_%S")}'
+        # self.job_dir = f'output'
+
+        # Objects configuration
+        self.objects_split = "train"
+        self.min_num_static_objects = 10
+        self.max_num_static_objects = 20
+        self.min_num_dynamic_objects = 2
+        self.max_num_dynamic_objects = 5
+
+        # Floor and background configuration
+        self.floor_friction = 0.1
+        self.floor_restitution = 0.6
+        self.backgrounds_split = "train"
+        
+        # Camera configuration
+        self.camera = "linear_movement"
+        self.max_camera_movement = 4.0
+        self.max_motion_blur = 2.0
+
+        # Assets configuration
+        self.kubasic_assets = "gs://kubric-public/assets/KuBasic/KuBasic.json"
+        self.hdri_assets = "gs://kubric-public/assets/HDRI_haven/HDRI_haven.json"
+        self.gso_assets = "gs://kubric-public/assets/GSO/GSO.json"
+        
+        # State saving configuration
+        self.save_state = False
+
+# Create an instance of DefaultFlags with the default values
+FLAGS = DefaultFlags()
+os.makedirs(FLAGS.job_dir, exist_ok = True)
+
+
+# Print all arguments and their values
+# print('===============================')
+# for key, value in vars(FLAGS).items():
+#     print(f"{key}: {value}")
+# print('===============================')
+
+time.sleep(10)
 
 # --- Common setups & resources
 scene, rng, output_dir, scratch_dir = kb.setup(FLAGS)
+print(f'output_dir: {output_dir}')
 
 motion_blur = rng.uniform(0, FLAGS.max_motion_blur)
 if motion_blur > 0.0:
@@ -78,6 +133,8 @@ if motion_blur > 0.0:
 simulator = PyBullet(scene, scratch_dir)
 renderer = Blender(scene, scratch_dir, use_denoising=True, samples_per_pixel=64,
                    motion_blur=motion_blur)
+scene.metadata["motion_blur"] = motion_blur
+
 kubasic = kb.AssetSource.from_manifest(FLAGS.kubasic_assets)
 gso = kb.AssetSource.from_manifest(FLAGS.gso_assets)
 hdri_source = kb.AssetSource.from_manifest(FLAGS.hdri_assets)

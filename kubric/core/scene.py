@@ -184,6 +184,8 @@ class Scene(tl.HasTraits):
     assert len(resolution) == 2, flags.resolution
     assert all(isinstance(x, int) for x in resolution)
 
+    print(f'resolution:{resolution}')
+
     return Scene(frame_start=flags.frame_start,
                  frame_end=flags.frame_end,
                  frame_rate=flags.frame_rate,
